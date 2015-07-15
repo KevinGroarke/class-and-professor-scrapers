@@ -9,7 +9,7 @@ import time
 
 class RMPSpider(scrapy.Spider):
     name = 'rmpSpider'
-    start_urls = ['http://www.ratemyprofessors.com/search.jsp?query=*&queryoption=HEADER&stateselect=&country=&dept=&queryBy=teacherName&facetSearch=true&schoolName=&offset=0&max=50%27']
+    start_urls = ['http://www.ratemyprofessors.com/search.jsp?queryBy=teacherName&schoolName=university+of+california+san+diego&queryoption=HEADER&query=*&facetSearch=true']
 
     def __init__(self):
         self.driver = webdriver.phantomjs.webdriver.WebDriver('/usr/local/lib/node_modules/phantomjs/bin/phantomjs', 0, {})
@@ -19,10 +19,6 @@ class RMPSpider(scrapy.Spider):
     def parse(self, response):
         self.driver.get(response.url)
         self.driver.find_element_by_xpath('//*[@id="cookie_notice"]/a[1]').click()
-        self.driver.execute_script("x = document.getElementsByName('schoolName')[2]; x.options[0].value = 'university of california san diego'; x.options[0].id = 'loopy'")
-        select = Select(self.driver.find_element_by_xpath("//select[@id='schoolName']"))
-        for option in select.options:
-            self.data.write("stuff: " + option.text.encode('utf-8'))
 
         while True:
             sel = scrapy.Selector(text=self.driver.page_source.encode('utf-8'))
