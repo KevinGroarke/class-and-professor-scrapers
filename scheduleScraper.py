@@ -22,35 +22,27 @@ class ScheduleSpider(scrapy.Spider):
         for i in range(num_options):
             self.driver.get(response.url)
             Select(self.driver.find_element_by_xpath('//*[@id="selectedSubjects"]')).select_by_index(i)
+            self.data.write(Select(self.driver.find_element_by_xpath('//*[@id="selectedSubjects"]')).options[i].text + '\n')
+            self.data.write('----------------------------------\n')
             self.driver.find_element_by_xpath('//*[@id="socFacSubmit"]').click()
 
-            result_selector = scrapy.Selector(text=self.driver.page_source.encode('utf-8'))
-            def encode_text(element): return element.encode('utf-8')
-
-            course_numbers = [num.encode('utf-8') for num in result_selector.xpath('//*[@id="socDisplayCVO"]/table/tbody/tr/td[2]/text()').extract() if len(str(num)) < 5]
-            course_names = map(encode_text, result_selector.xpath('//*[@id="socDisplayCVO"]/table/tbody/tr/td[3]/a/span/text()').extract())
-            course_instructors = map(encode_text, result_selector.xpath('//*[@id="socDisplayCVO"]/table/tbody/tr/td[10]/a/text()').extract())
-            course_times = map(encode_text, result_selector.xpath('//*[@id="socDisplayCVO"]/table/tbody/tr/td[7]/text()').extract())
-
-            courses = zip(course_numbers, course_names, course_instructors, course_times)
-            self.data.write(str(len(course_numbers)) + ' ' +str(len(course_names)) + ' ' + str(len(course_instructors)) + ' ' +  str(len(course_times)) + ': ')
+            try:
+                total_page_number = self.driver.find_element_by_xpath('//*[@id="socDisplayCVO"]/div[2]/table/tbody/tr/td[3]').text
+                total_page_number = int(total_page_number[(total_page_number.index('f') + 2):total_page_number.index(')')])
+            except:
+                total_page_number = 0
             
-            all_columns = result_selector.xpath('//*[@id="socDisplayCVO"]/table/tbody/tr').extract()
-            class_info = []
-            index = 0
-            
-            self.data.write('before column length \n')
-            self.data.write(len(all_columns) + '\n')
-            for column in columns: self.data.write(column.encode('utf-8')) 
-            
-            '''while (index < len(all_columns)):
-                self.data.write('shit not found\n')
-                if (all_columns[index].css('.sectxt').extract_first(default='not-found').encode('utf-8') == 'not-found' and index > 0):
-                    class_info.append([all_columns[index-1]]) # New class object, we added top purple bar element
-                    self.data.write('shit class found ' + index + '\n')
+            self.data.write('Total page number is ' + str(total_page_number) + '\n')
 
-                    while (all_columns[index].css('.sectxt').extract_first(default='not-found') != 'not-found' and index > 0):
-                       class_info[len(class_info)-1].append(all_columns[index])  # Append class times to each class object
-                       self.data.write('adding times shieeeet ' + index + '\n') 
-                       index += 1
-                index += 1 '''
+            for j in range(1, total_page_number + 1):
+                self.data.write('In loop\n')
+                self.driver.execute_script('window.location.href = \"https://act.ucsd.edu/scheduleOfClasses/scheduleOfClassesStudentResult.htm?page=' + str(j) + '\"')
+                result_selector = scrapy.Selector(text=self.driver.page_source.encode('utf-8'))
+                table = result_selector.xpath('//*[@id="socDisplayCVO"]/table/tbody/tr')
+                course_selectors = result_selector.xpath('//*[@id="socDisplayCVO"]/table/tbody/tr/td[3]/a/span')
+                courses = []
+
+                for selector in course_selectors:
+                    self.data.write(selector.xpath('.//text()').extract_first(default='Course name not found').encode('utf-8'))
+                    self.data.write(selector.xpath('.//ancestor::tr[1]//following-sibling::tr[1]/td/a/text()').extract_first(default='Instructor not found').encode('utf-8'))
+                    self.data.write('\n\n')
