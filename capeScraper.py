@@ -4,6 +4,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import scrapy
 import time
+import json
 
 
 class CapeSpider(scrapy.Spider):
@@ -22,7 +23,7 @@ class CapeSpider(scrapy.Spider):
             '//*[@id="ctl00_ContentPlaceHolder1_ddlDepartments"]').find_elements_by_tag_name('option')
         options.pop(0)
         submit = self.driver.find_element_by_xpath('//*[@id="ctl00_ContentPlaceHolder1_btnSubmit"]')
-        cape_courses = []
+        json_data = []
 
         # Navigate each subject's capes
         for option in options:
@@ -36,6 +37,9 @@ class CapeSpider(scrapy.Spider):
                 WebDriverWait(self.driver, 60).until(
                     EC.element_to_be_clickable((By.XPATH, '//*[@id="ctl00_ContentPlaceHolder1_btnSubmit"]'))
                     )
+                # For some annoying reason, even though I got these tests I still gotta wait a sec or I get DOM error
+                # 1/2 the time... tests fix it for 1/2 the time...time.sleep fixes for other half
+                time.sleep(1)
                 self.driver.find_element_by_xpath('//*[@id="ctl00_ContentPlaceHolder1_btnSubmit"]').click()
             except ValueError:
                 self.data.write('couldn\'t click an option\n')
@@ -54,7 +58,10 @@ class CapeSpider(scrapy.Spider):
 
             for course_selector in course_selectors:
                 professor_name = course_selector.xpath('.//td[1]/text()').extract_first(default='not found')
-                course_name = course_selector.xpath('.//td[2]/a/text()').extract_first(default='not found')
+                full_course_name = course_selector.xpath('.//td[2]/a/text()').extract_first(default='not found')
+                course_subject = full_course_name[:full_course_name.index(' ') ]
+                course_number = full_course_name[(full_course_name.index(' ') + 1):(full_course_name.find('-') - 1)]
+                course_name = full_course_name[(full_course_name.find('-') + 2):]
                 term = course_selector.xpath('.//td[3]/text()').extract_first(default='not found')
                 recommend_class = course_selector.xpath('.//td[6]/span/text()').extract_first(default='not found')
                 recommend_instructor = course_selector.xpath('.//td[7]/span/text()').extract_first(default='not found')
@@ -62,5 +69,15 @@ class CapeSpider(scrapy.Spider):
                 avg_grade_exp = course_selector.xpath('.//td[9]/span/text()').extract_first(default='not found')
                 avg_grade_rec = course_selector.xpath('.//td[10]/span/text()').extract_first(default='not found')
 
-                self.data.write(professor_name + ' ' + course_name + ' ' + term + ' ' + recommend_class + ' ' +
-                    recommend_instructor + ' ' + study_hours + ' ' + avg_grade_exp + ' ' + avg_grade_rec + '\n')
+                #self.data.write(course_subject + '' + course_number + '' + course_name + '\n')
+                json_data.append({"courseTitle": course_name, "courseNumber": course_number,
+                                  "courseSubject": course_subject, "professorName": professor_name,
+                                  "cape": {"recommendClass": recommend_class,
+                                           "recommendInstructor": recommend_instructor,
+                                           "studyHoursAWeek": study_hours,
+                                           "averageGradeExpected": avg_grade_exp,
+                                           "averageGradeRecieved": avg_grade_rec,
+                                           "term": term
+                                           }})
+
+        self.data.write(unicode(json.dumps(json_data, indent=4)))
