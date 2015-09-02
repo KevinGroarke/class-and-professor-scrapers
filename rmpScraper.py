@@ -2,53 +2,44 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import Select
+from selenium.common.exceptions import ElementNotVisibleException
 import scrapy
-import re
 import time
+import json
 
-class RMPSpider(scrapy.Spider):
-    name = 'rmpSpider'
-    start_urls = ['http://www.ratemyprofessors.com/search.jsp?queryBy=teacherName&schoolName=university+of+california+san+diego&queryoption=HEADER&query=*&facetSearch=true']
+
+class CapeSpider(scrapy.Spider):
+    name = 'capeSpider'
+    start_urls = ['http://www.ratemyprofessors.com/search.jsp?queryBy=schoolId&schoolName=University+of+California+San+Diego&schoolID=1079&queryoption=TEACHER']
 
     def __init__(self):
-        self.driver = webdriver.phantomjs.webdriver.WebDriver('/usr/local/lib/node_modules/phantomjs/bin/phantomjs', 0, {})
-        self.driver.set_window_size(1124,850)
+        self.driver = webdriver.Firefox()
         self.data = open('./data', 'w+')
 
     def parse(self, response):
         self.driver.get(response.url)
         self.driver.find_element_by_xpath('//*[@id="cookie_notice"]/a[1]').click()
 
+        # While the 'load more' button is still there keep loading more professors and ratings
         while True:
-            sel = scrapy.Selector(text=self.driver.page_source.encode('utf-8'))
-            links = sel.xpath('//*[@id="searchResultsBox"]/div[2]/ul/li/a/@href').extract()
-            links = map(lambda link: response.urljoin(link.encode('utf-8')), links)
-            
-            for link in links:
-                yield scrapy.Request(link, callback=self.parse_review)
-            try: 
-                WebDriverWait(self.driver, 10).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, '#searchResultsBox > div.toppager > div.toppager-left > div.result-pager.hidden-md > a.nextLink'))
-                    )
-                self.driver.find_element_by_css_selector('#searchResultsBox > div.toppager > div.toppager-left > div.result-pager.hidden-md > a.nextLink').click()
-            except ValueError:
+            try:
+                self.driver.find_element_by_xpath('//*[@id="mainContent"]/div[1]/div/div[5]/div/div[1]').click()
+            except ElementNotVisibleException:
                 break
+        sel = scrapy.Selector(text=self.driver.page_source.encode('utf-8'))
 
-    def parse_review(self, response):
-        first_name = re.sub('[^a-zA-Z]+', "", response.xpath('//*[@id="mainContent"]/div[2]/div[1]/div[2]/div[1]/span[1]/text()').extract_first(default='undefined').encode('utf-8'))
-        last_name = re.sub('[^a-zA-Z]+', "", response.xpath('//*[@id="mainContent"]/div[2]/div[1]/div[2]/div[1]/span[3]/text()').extract_first(default='undefined').encode('utf-8'))
-        rating = response.xpath('//*[@id="mainContent"]/div[2]/div[2]/div[1]/div[1]/div[1]/div/text()').extract_first(default='undefined').encode('utf-8')        
-        letter_grade = response.xpath('//*[@id="mainContent"]/div[2]/div[2]/div[1]/div[1]/div[2]/div/text()').extract_first(default='undefined').encode('utf-8')
-        helpfulness = response.xpath('//*[@id="mainContent"]/div[2]/div[2]/div[1]/div[2]/div[1]/div[2]/text()').extract_first(default='undefined').encode('utf-8')
-        clarity = response.xpath('//*[@id="mainContent"]/div[2]/div[2]/div[1]/div[2]/div[2]/div[2]/text()').extract_first(default='undefined').encode('utf-8')
-        easiness = response.xpath('//*[@id="mainContent"]/div[2]/div[2]/div[1]/div[2]/div[3]/div[2]/text()').extract_first(default='undefined').encode('utf-8')
-        university = response.xpath('//*[@id="mainContent"]/div[2]/div[1]/div[2]/div[2]/a/text()').extract_first(default='undefined').encode('utf-8')
-        if (first_name != 'undefined'):
-            self.data.write('Professor: ' + first_name + ', ' + last_name + '\n')
-            self.data.write('University: ' + university + '\n')
-            self.data.write('Rating: ' + rating + '\n')
-            self.data.write('Grade: ' + letter_grade + '\n')
-            self.data.write('helpfulness: ' + helpfulness + '\n')
-            self.data.write('clarity: ' + clarity + '\n')
-            self.data.write('easiness: ' + easiness + '\n')
+        professor_names = map(lambda name: name.encode('utf-8'),
+                              sel.xpath('//*[@id="mainContent"]/div[1]/div/div[5]/ul/li/a/span[3]/text()').extract())
+        professor_ratings = map(lambda rating: rating.encode('utf-8'),
+                                sel.xpath('//*[@id="mainContent"]/div[1]/div/div[5]/ul/li/a/span[2]/text()').extract())
+        professor_infos = zip(professor_names, professor_ratings)
+
+        json_data = []
+
+        for professor_info in professor_infos:
+           json_data.append({
+               'professorName': professor_info[0],
+               'rmpRating': professor_info[1]
+           })
+
+        self.data.write(unicode(json.dumps(json_data, indent=4)))

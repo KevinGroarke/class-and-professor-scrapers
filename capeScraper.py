@@ -69,15 +69,17 @@ class CapeSpider(scrapy.Spider):
                 avg_grade_exp = course_selector.xpath('.//td[9]/span/text()').extract_first(default='not found')
                 avg_grade_rec = course_selector.xpath('.//td[10]/span/text()').extract_first(default='not found')
 
-                #self.data.write(course_subject + '' + course_number + '' + course_name + '\n')
-                json_data.append({"courseTitle": course_name, "courseNumber": course_number,
-                                  "courseSubject": course_subject, "professorName": professor_name,
-                                  "cape": {"recommendClass": recommend_class,
-                                           "recommendInstructor": recommend_instructor,
-                                           "studyHoursAWeek": study_hours,
-                                           "averageGradeExpected": avg_grade_exp,
-                                           "averageGradeRecieved": avg_grade_rec,
-                                           "term": term
-                                           }})
+                json_data.append({
+                    "courseTitle": course_name, "courseNumber": course_number,
+                    "courseSubject": course_subject, "professorName": professor_name,
+                    "cape": {
+                        "recommendClass": recommend_class,
+                        "recommendInstructor": recommend_instructor,
+                        "studyHoursAWeek": study_hours,
+                        "averageGradeExpected": avg_grade_exp,
+                        "averageGradeRecieved": avg_grade_rec,
+                        "term": term
+                    }
+                })
 
         self.data.write(unicode(json.dumps(json_data, indent=4)))
