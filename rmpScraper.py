@@ -28,9 +28,15 @@ class CapeSpider(scrapy.Spider):
                 break
         sel = scrapy.Selector(text=self.driver.page_source.encode('utf-8'))
 
+        def str_to_float(str):
+            try:
+                return float(str)
+            except ValueError:
+                return None
+
         professor_names = map(lambda name: name.encode('utf-8'),
                               sel.xpath('//*[@id="mainContent"]/div[1]/div/div[5]/ul/li/a/span[3]/text()').extract())
-        professor_ratings = map(lambda rating: rating.encode('utf-8'),
+        professor_ratings = map(str_to_float,
                                 sel.xpath('//*[@id="mainContent"]/div[1]/div/div[5]/ul/li/a/span[2]/text()').extract())
         professor_infos = zip(professor_names, professor_ratings)
 
