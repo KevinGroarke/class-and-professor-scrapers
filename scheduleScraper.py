@@ -1,11 +1,7 @@
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 import scrapy
 import json
-import time
 
 
 class ScheduleSpider(scrapy.Spider):
@@ -13,8 +9,9 @@ class ScheduleSpider(scrapy.Spider):
     start_urls = ['https://act.ucsd.edu/scheduleOfClasses/scheduleOfClassesStudent.htm']
 
     def __init__(self):
-        self.driver = webdriver.Firefox()
-        self.data = open('./data', 'w+')
+        self.driver = webdriver.PhantomJS()
+        self.driver.set_window_size(1124, 850)
+        self.data = open('./scheduleData', 'w+')
 
     def parse(self, response):
         self.driver.get(response.url)
@@ -63,6 +60,6 @@ class ScheduleSpider(scrapy.Spider):
                     json_data.append(
                         {"courseSubjectShort": subject_short, "courseSubject": subject, "courseTitle": course_title,
                          "courseNumber": course_number,
-                         "professor": {"name": professor_name, "rmpRating": '', "cape": {}}})
+                         "professor": {"name": professor_name, }})
 
         self.data.write(unicode(json.dumps(json_data, indent=4)))
