@@ -8,12 +8,11 @@ import scrapy
 import json
 
 
-class CapeSpider(scrapy.Spider):
-    name = 'capeSpider'
+class RMPSpider(scrapy.Spider):
+    name = 'RMPSpider'
     start_urls = ['http://www.ratemyprofessors.com/search.jsp?queryBy=schoolId&schoolName=University+of+California+San+Diego&schoolID=1079&queryoption=TEACHER']
 
     def __init__(self):
-        #self.driver = webdriver.Firefox()
         self.driver = webdriver.PhantomJS()
         self.driver.set_window_size(1124, 850)
         self.data = open('./rmpData', 'w+')
@@ -33,9 +32,7 @@ class CapeSpider(scrapy.Spider):
                 )
 
                 self.driver.find_element_by_xpath('//*[@id="mainContent"]/div[1]/div/div[5]/div/div[1]').click()
-
-                WebDriverWait(self.driver, 10).until(lambda driver: self.driver.execute_script('return jQuery.active == 0'))
-
+                self.wait_for_ajax()
             except (ElementNotVisibleException, TimeoutException) as e:
                 break
 
@@ -47,7 +44,7 @@ class CapeSpider(scrapy.Spider):
             except ValueError:
                 return None
 
-        professor_names = map(lambda name: name.encode('utf-8'),
+        professor_names = map(lambda name: name.encode('utf-8')[:name.index('\n')],
                               sel.xpath('//*[@id="mainContent"]/div[1]/div/div[5]/ul/li/a/span[3]/text()').
                               extract()[::2])
         professor_ratings = map(str_to_float,
@@ -64,5 +61,8 @@ class CapeSpider(scrapy.Spider):
 
         self.data.write(unicode(json.dumps(json_data, indent=4)))
 
-    def wait_for_load(self):
-        WebDriverWait(self.driver, 10).until(lambda driver: self.driver.execute_script('return jQuery.active == 0'))
+    def wait_for_ajax(self):
+        ajax_done = False
+
+        while not ajax_done:
+            ajax_done = self.driver.execute_script('window.testing={timeouts:{},intervals:[]};window._setTimeout=window.setTimeout;window.setTimeout=function(callback,timeout){var handle=_.uniqueId();var timeoutId=window._setTimeout(function(){callback();delete window.testing.timeouts[handle]},timeout);window.testing.timeouts[handle]=timeoutId;return timeoutId};window._clearTimeout=window.clearTimeout;window.clearTimeout=function(timeoutId){var returnValue=window._clearTimeout(timeoutId);var timeoutToClear;_.each(window.testing.timeouts,function(storedTimeoutID,handle){if(storedTimeoutID===timeoutId){timeoutToClear=handle}});delete window.testing.timeouts[timeoutToClear];return returnValue};window._setInterval=window.setInterval;window.setInterval=function(cb,interval){var intervalId=window._setInterval(cb,interval);window.testing.intervals.push(intervalId);return intervalId};window._clearInterval=window.clearInterval;window.clearInterval=function(intervalId){var returnValue=window._clearInterval(intervalId);window.testing.intervals=_.without(window.testing.intervals,intervalId);return returnValue};return jQuery.active===0&&Object.keys(window.testing.timeouts).length===0&&window.testing.intervals.length===0;')
