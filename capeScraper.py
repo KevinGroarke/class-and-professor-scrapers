@@ -4,7 +4,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import StaleElementReferenceException
 import scrapy
-import time
 import json
 
 
@@ -85,18 +84,24 @@ class CapeSpider(scrapy.Spider):
     start_urls = ['http://cape.ucsd.edu/responses/index.html']
 
     def __init__(self):
-        self.driver = webdriver.Firefox()
-        self.data = open('./data', 'w+')
+        self.driver = webdriver.PhantomJS()
+        self.driver.set_window_size(1124, 850)
+        self.data = open('./capeData', 'w+')
 
     def parse(self, response):
         self.driver.get(response.url)
+
         # Navigate to evaluation results
+        WebDriverWait(self.driver, 5).until(
+            EC.presence_of_element_located((By.XPATH, '//*[@id="tdr_2_col_content"]/ul/li[2]/a'))
+        )
         self.driver.find_element_by_xpath('//*[@id="tdr_2_col_content"]/ul/li[2]/a').click()
+
+        # Get a list of subjects/options to loop through
         options = self.driver.find_element_by_xpath(
             '//*[@id="ctl00_ContentPlaceHolder1_ddlDepartments"]').find_elements_by_tag_name('option')
-        options.pop(0)
-        submit = self.driver.find_element_by_xpath('//*[@id="ctl00_ContentPlaceHolder1_btnSubmit"]')
-        json_data = []
+        options.pop(0)  # First option is empty/blank
+
         cape_dict = {}
 
         # Navigate each subject's capes
@@ -181,7 +186,7 @@ class CapeSpider(scrapy.Spider):
                         avg_grade_rec = float()
 
                 new_cape_info = CapeInfo(course_name, course_number, course_subject, professor_name, recommend_class,
-                         recommend_professor, study_hours, avg_grade_exp, avg_grade_rec, term)
+                        recommend_professor, study_hours, avg_grade_exp, avg_grade_rec, term)
 
                 # String versions of the hash returned are used since it doesn't seem to work otherwise...Too big num?
                 if cape_dict.get(str(hash(new_cape_info))):
