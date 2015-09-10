@@ -7,6 +7,7 @@
 * Scrapy
 * Selenium
 * Python
+* PhantomJS
 * Firefox Webdriver
 
 # Usage

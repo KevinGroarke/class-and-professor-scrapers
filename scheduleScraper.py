@@ -57,6 +57,7 @@ class ScheduleSpider(scrapy.Spider):
                     professor_name = selector.xpath(
                         './/ancestor::tr[1]//following-sibling::tr[1]/td/a/text()').extract_first(
                         default='null').encode('utf-8')
+                    professor_name = professor_name[:professor_name.index('  ')]
                     json_data.append(
                         {"courseSubjectShort": subject_short, "courseSubject": subject, "courseTitle": course_title,
                          "courseNumber": course_number,

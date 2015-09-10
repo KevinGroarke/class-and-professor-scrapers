@@ -10,16 +10,25 @@ import json
 
 class RMPSpider(scrapy.Spider):
     name = 'RMPSpider'
-    start_urls = ['http://www.ratemyprofessors.com/search.jsp?queryBy=schoolId&schoolName=University+of+California+San+Diego&schoolID=1079&queryoption=TEACHER']
+    start_urls = ['http://www.ratemyprofessors.com/campusRatings.jsp?sid=1079']
 
     def __init__(self):
         self.driver = webdriver.PhantomJS()
-        self.driver.set_window_size(1124, 850)
+        self.driver.maximize_window()
         self.data = open('./rmpData', 'w+')
 
     def parse(self, response):
         self.driver.get(response.url)
+
+        WebDriverWait(self.driver, 3).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="cookie_notice"]/a[1]'))
+        )
         self.driver.find_element_by_xpath('//*[@id="cookie_notice"]/a[1]').click()
+
+        WebDriverWait(self.driver, 3).until(
+            EC.visibility_of_element_located((By.XPATH, '//*[@id="mainContent"]/div[1]/div/div[4]/div[3]/a[27]'))
+        )
+        self.driver.find_element_by_xpath('//*[@id="mainContent"]/div[1]/div/div[4]/div[3]/a[27]').click()
 
         # While the 'load more' button is still there keep loading more professors and ratings
         while True:
