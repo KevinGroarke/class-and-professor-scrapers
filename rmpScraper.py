@@ -6,7 +6,7 @@ from selenium.common.exceptions import ElementNotVisibleException
 from selenium.common.exceptions import TimeoutException
 import scrapy
 import json
-
+import time
 
 class RMPSpider(scrapy.Spider):
     name = 'RMPSpider'
@@ -31,6 +31,9 @@ class RMPSpider(scrapy.Spider):
         self.driver.find_element_by_xpath('//*[@id="mainContent"]/div[1]/div/div[4]/div[3]/a[27]').click()
 
         # While the 'load more' button is still there keep loading more professors and ratings
+        # It waits for all ajax connections to close
+        # It is supposed to send 20 new elements with each 'load more', but for some reason it
+        # sends less at some points (like 18 or 19 elements). 2527 should be loaded...some get lost?
         while True:
             try:
                 WebDriverWait(self.driver, 3).until(
@@ -42,6 +45,8 @@ class RMPSpider(scrapy.Spider):
 
                 self.driver.find_element_by_xpath('//*[@id="mainContent"]/div[1]/div/div[5]/div/div[1]').click()
                 self.wait_for_ajax()
+
+                time.sleep(1)  # Seems to be the only kinda reliable way to have it load the data...
             except (ElementNotVisibleException, TimeoutException) as e:
                 break
 
@@ -68,6 +73,7 @@ class RMPSpider(scrapy.Spider):
                'rmpRating': professor_info[1]
            })
 
+        #self.data.write(str(len(sel.xpath('//*[@id="mainContent"]/div[1]/div/div[5]/ul/li'))))
         self.data.write(unicode(json.dumps(json_data, indent=4)))
 
     def wait_for_ajax(self):
