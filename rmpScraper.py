@@ -56,7 +56,7 @@ class RMPSpider(scrapy.Spider):
             try:
                 return float(str)
             except ValueError:
-                return None
+                return float()
 
         professor_names = map(lambda name: name.encode('utf-8')[:name.index('\n')],
                               sel.xpath('//*[@id="mainContent"]/div[1]/div/div[5]/ul/li/a/span[3]/text()').

@@ -8,7 +8,6 @@ import json
 
 
 class CapeInfo:
-
     def __init__(self, course_name='', course_number='', course_subject='', professor_name='',
                recommend_class=float(), recommend_professor=float(), study_hours=float(),
                  average_grade_expected=float(), average_grade_received=float(), term=''):
@@ -60,7 +59,7 @@ class CapeInfo:
         }
 
         return {
-            "professor_name": self.professor_name,
+            "professorName": self.professor_name,
             "courseName": self.course_name,
             "courseNumber": self.course_number,
             "courseSubject": self.course_subject,
@@ -185,6 +184,13 @@ class CapeSpider(scrapy.Spider):
                     except (IndexError, ValueError) as e:
                         avg_grade_rec = float()
 
+                try:
+                    index = professor_name.index('  ')
+                    professor_name = professor_name[:(index)]
+                except:
+                    pass
+
+
                 new_cape_info = CapeInfo(course_name, course_number, course_subject, professor_name, recommend_class,
                         recommend_professor, study_hours, avg_grade_exp, avg_grade_rec, term)
 
@@ -193,6 +199,7 @@ class CapeSpider(scrapy.Spider):
                     cape_dict[str(hash(new_cape_info))] = cape_dict[str(hash(new_cape_info))] + new_cape_info
                 else:
                     cape_dict[str(hash(new_cape_info))] = new_cape_info
+            break
 
         json_data = map(lambda capeObj: capeObj.get_dict(), list(cape_dict.values()))
         self.data.write(unicode(json.dumps(json_data, indent=4)))
