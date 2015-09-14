@@ -14,7 +14,6 @@ class ScheduleSpider(scrapy.Spider):
 
     def __init__(self):
         self.driver = webdriver.PhantomJS()
-        self.driver = webdriver.Firefox()
         self.driver.maximize_window()
         self.data = open('./scheduleData', 'w+')
 
@@ -28,16 +27,17 @@ class ScheduleSpider(scrapy.Spider):
         for i in range(num_options - 1):
             self.driver.get(response.url)
 
+            # Wait for subjects appear in options box, then click
             WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, '//*[@id="selectedSubjects"]'))
             )
-
             Select(self.driver.find_element_by_xpath('//*[@id="selectedSubjects"]')).select_by_index(i)
 
             subject_selection = Select(self.driver.find_element_by_xpath('//*[@id="selectedSubjects"]')).options[i].text
             course_subject_long = subject_selection[(subject_selection.index('-') + 2):]
             course_subject = subject_selection[:(subject_selection.index('-') - 1)]
 
+            # Hit submit to get courses for that subject
             self.driver.find_element_by_xpath('//*[@id="socFacSubmit"]').click()
 
             # Try to get the number of pages for this subject
@@ -51,10 +51,8 @@ class ScheduleSpider(scrapy.Spider):
 
             # Iterate over each page in for the results of this subject
             for j in range(1, total_page_number + 1):
-                self.driver.execute_script(
-                    'window.location.href = \"https://act.ucsd.edu/scheduleOfClasses/scheduleOfClassesStudentResult'
-                    '.htm?page=' + str(
-                        j) + '\"')
+                self.driver.get('https://act.ucsd.edu/scheduleOfClasses/scheduleOfClassesStudentResult.htm?page=' +
+                                str(j))
 
                 result_selector = scrapy.Selector(text=self.driver.page_source.encode('utf-8'))
                 course_selectors = result_selector.xpath('//*[@id="socDisplayCVO"]/table/tbody/tr/td[3]/a/span')
@@ -67,7 +65,8 @@ class ScheduleSpider(scrapy.Spider):
                     if '  ' in course_title:
                         course_title = course_title[:course_title.index('  ')]
 
-                    course_number = unicode(selector.xpath('.//ancestor::td[1]/preceding-sibling::td[1]/text()').extract_first(
+                    course_number = unicode(selector.xpath(
+                        './/ancestor::td[1]/preceding-sibling::td[1]/text()').extract_first(
                         ''))
                     professor_name = selector.xpath(
                         './/ancestor::tr[1]//following-sibling::tr[1]/td/a/text()').extract_first(

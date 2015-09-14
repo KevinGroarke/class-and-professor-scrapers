@@ -27,16 +27,11 @@ for cape in cape_data:
     cape_dict[key] = cape
 
 for course in schedule_data:
-    mergedData.write(course['professorName'] + '\n')
     possible_professors = rmp_trie.prefixes(course['professorName'])
     course_key = course_hash(course['courseNumber'], course['courseSubject'], course['professorName'])
-    mergedData.write(unicode(cape_dict.get(course_key)) + '\n')
 
     course['rmpRating'] = rmp_ratings[rmp_trie[possible_professors[-1]]] if possible_professors else float()
     course['capes'] = cape_dict[course_key][u'capes'] if cape_dict.get(course_key) else {}
-    #course['averageCape'] = cape_dict[course_key]['averageCape'] if cape_dict.get(course_key) else {}
-    mergedData.write(unicode(course['rmpRating']) + '\n')
-    #mergedData.write(unicode(course['capes']) + '\n')
-    #mergedData.write(unicode(course['averageCape']) + '\n')
+    course['averageCape'] = cape_dict[course_key]['averageCape'] if cape_dict.get(course_key) else {}
 
 mergedData.write(unicode(json.dumps(schedule_data, indent=4)))
