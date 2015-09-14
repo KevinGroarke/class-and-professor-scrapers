@@ -9,7 +9,7 @@ import json
 
 class CapeInfo:
     def __init__(self, course_name='', course_number='', course_subject='', professor_name='',
-               recommend_class=float(), recommend_professor=float(), study_hours=float(),
+                 recommend_class=float(), recommend_professor=float(), study_hours=float(),
                  average_grade_expected=float(), average_grade_received=float(), term=''):
         self.course_name = course_name
         self.course_number = course_number
@@ -28,6 +28,7 @@ class CapeInfo:
 
         self.capes.append(cape)
 
+    # Returns the cape info in a nice dictionary format with an average cape too
     def get_dict(self):
         recommend_class = float()
         recommend_professor = float()
@@ -68,7 +69,7 @@ class CapeInfo:
         }
 
     def __hash__(self):
-        return hash(str(self.course_name + self.course_subject + self.professor_name + str(self.course_number)))
+        return hash(str(self.course_subject + self.professor_name + str(self.course_number)))
 
     def __iadd__(self, other):
         self.data.write(unicode(json.dumps(self.capes, indent=4)))
@@ -84,7 +85,9 @@ class CapeSpider(scrapy.Spider):
 
     def __init__(self):
         self.driver = webdriver.PhantomJS()
-        self.driver.set_window_size(1124, 850)
+
+        # Can't find elements if you don't set window size...PhantomJS bug that needs to be fixed
+        self.driver.maximize_window()
         self.data = open('./capeData', 'w+')
 
     def parse(self, response):
@@ -124,24 +127,23 @@ class CapeSpider(scrapy.Spider):
                     continue
 
             # Wait based on the red spinning thing appearing and then disappearing (it's loading results)
-            try:
-                WebDriverWait(self.driver, 30).until(
-                    EC.visibility_of_element_located((By.XPATH, '//*[@id="ctl00_ContentPlaceHolder1_UpdateProgress1"]/div/div/img'))
-                    )
-                WebDriverWait(self.driver, 60).until(
-                    EC.invisibility_of_element_located((By.XPATH, '//*[@id="ctl00_ContentPlaceHolder1_UpdateProgress1"]/div/div/img'))
-                    )
-            except ValueError:
-                self.data.write('sum error\n')
+            WebDriverWait(self.driver, 30).until(
+                EC.visibility_of_element_located(
+                    (By.XPATH, '//*[@id="ctl00_ContentPlaceHolder1_UpdateProgress1"]/div/div/img'))
+            )
+            WebDriverWait(self.driver, 60).until(
+                EC.invisibility_of_element_located(
+                    (By.XPATH, '//*[@id="ctl00_ContentPlaceHolder1_UpdateProgress1"]/div/div/img'))
+            )
 
-            # Pass the webpage navigated to by Selenium to Scrapy
+            # Pass the web page navigated to by Selenium to Scrapy
             sel = scrapy.Selector(text=self.driver.page_source.encode('utf-8'))
             course_selectors = sel.xpath('//*[@id="ctl00_ContentPlaceHolder1_gvCAPEs"]/tbody/tr')
 
             for course_selector in course_selectors:
                 professor_name = course_selector.xpath('.//td[1]/text()').extract_first(default=None)
                 full_course_name = course_selector.xpath('.//td[2]/a/text()').extract_first(default=None)
-                course_subject = full_course_name[:full_course_name.index(' ') ]
+                course_subject = full_course_name[:full_course_name.index(' ')]
                 course_number = full_course_name[(full_course_name.index(' ') + 1):(full_course_name.find('-') - 1)]
                 course_name = full_course_name[(full_course_name.find('-') + 2):]
                 term = course_selector.xpath('.//td[3]/text()').extract_first(default=None)
@@ -184,22 +186,20 @@ class CapeSpider(scrapy.Spider):
                     except (IndexError, ValueError) as e:
                         avg_grade_rec = float()
 
-                try:
-                    index = professor_name.index('  ')
-                    professor_name = professor_name[:(index)]
-                except:
-                    pass
-
+                # Some professor names have extra spaces. If they do delete them.
+                if '  ' in professor_name:
+                    professor_name = professor_name[:professor_name.index('  ')]
 
                 new_cape_info = CapeInfo(course_name, course_number, course_subject, professor_name, recommend_class,
-                        recommend_professor, study_hours, avg_grade_exp, avg_grade_rec, term)
+                                         recommend_professor, study_hours, avg_grade_exp, avg_grade_rec, term)
 
+                # If this new cape info has the came course and professor then combine them, else add to hash table
                 # String versions of the hash returned are used since it doesn't seem to work otherwise...Too big num?
                 if cape_dict.get(str(hash(new_cape_info))):
                     cape_dict[str(hash(new_cape_info))] = cape_dict[str(hash(new_cape_info))] + new_cape_info
                 else:
                     cape_dict[str(hash(new_cape_info))] = new_cape_info
-            break
 
+        # Map cape objects to a dictionary format, so that it can be written as json to a file
         json_data = map(lambda capeObj: capeObj.get_dict(), list(cape_dict.values()))
         self.data.write(unicode(json.dumps(json_data, indent=4)))
