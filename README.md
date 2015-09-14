@@ -5,10 +5,10 @@
 
 # Dependencies
 * Scrapy
+* Marisa Trie
 * Selenium
 * Python
 * PhantomJS
-* Firefox Webdriver
 
 # Usage
 ```sh
