@@ -8,6 +8,7 @@ import scrapy
 import json
 import time
 
+
 class RMPSpider(scrapy.Spider):
     name = 'RMPSpider'
     start_urls = ['http://www.ratemyprofessors.com/campusRatings.jsp?sid=1079']
@@ -20,11 +21,13 @@ class RMPSpider(scrapy.Spider):
     def parse(self, response):
         self.driver.get(response.url)
 
+        # Wait for cookie notice to appear and click
         WebDriverWait(self.driver, 3).until(
             EC.element_to_be_clickable((By.XPATH, '//*[@id="cookie_notice"]/a[1]'))
         )
         self.driver.find_element_by_xpath('//*[@id="cookie_notice"]/a[1]').click()
 
+        # Wait for 'ALL' element to appear and click it
         WebDriverWait(self.driver, 3).until(
             EC.visibility_of_element_located((By.XPATH, '//*[@id="mainContent"]/div[1]/div/div[4]/div[3]/a[27]'))
         )
@@ -37,19 +40,20 @@ class RMPSpider(scrapy.Spider):
         while True:
             try:
                 WebDriverWait(self.driver, 3).until(
-                    EC.presence_of_element_located((By.XPATH, '//*[@id="mainContent"]/div[1]/div/div[5]/div/div[1]'))
-                )
-                WebDriverWait(self.driver, 3).until(
                     EC.element_to_be_clickable((By.XPATH, '//*[@id="mainContent"]/div[1]/div/div[5]/div/div[1]'))
                 )
 
-                self.driver.find_element_by_xpath('//*[@id="mainContent"]/div[1]/div/div[5]/div/div[1]').click()
-                self.wait_for_ajax()
+                sel = scrapy.Selector(text=self.driver.page_source.encode('utf-8'))
 
-                time.sleep(1)  # Seems to be the only kinda reliable way to have it load the data...
+                self.driver.find_element_by_xpath('//*[@id="mainContent"]/div[1]/div/div[5]/div/div[1]').click()
+
+                # Wait for ajax requests to finish. For some reason this isn't enough alone, so I wait another second
+                self._wait_for_ajax()
+                time.sleep(1)
             except (ElementNotVisibleException, TimeoutException) as e:
                 break
 
+        # Pass scrapy the page we naviaged to with selenium
         sel = scrapy.Selector(text=self.driver.page_source.encode('utf-8'))
 
         def str_to_float(str):
@@ -58,6 +62,7 @@ class RMPSpider(scrapy.Spider):
             except ValueError:
                 return float()
 
+        # Scrape data from page
         professor_names = map(lambda name: name.encode('utf-8')[:name.index('\n')],
                               sel.xpath('//*[@id="mainContent"]/div[1]/div/div[5]/ul/li/a/span[3]/text()').
                               extract()[::2])
@@ -67,16 +72,17 @@ class RMPSpider(scrapy.Spider):
 
         json_data = []
 
+        # Insert scraped data into json array
         for professor_info in professor_infos:
            json_data.append({
                'professorName': professor_info[0],
                'rmpRating': professor_info[1]
            })
 
-        #self.data.write(str(len(sel.xpath('//*[@id="mainContent"]/div[1]/div/div[5]/ul/li'))))
         self.data.write(unicode(json.dumps(json_data, indent=4)))
 
-    def wait_for_ajax(self):
+    # Waits until ajax requests finish
+    def _wait_for_ajax(self):
         ajax_done = False
 
         while not ajax_done:

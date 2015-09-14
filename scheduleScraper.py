@@ -1,5 +1,8 @@
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
 import scrapy
 import json
 import re
@@ -11,6 +14,7 @@ class ScheduleSpider(scrapy.Spider):
 
     def __init__(self):
         self.driver = webdriver.PhantomJS()
+        self.driver = webdriver.Firefox()
         self.driver.maximize_window()
         self.data = open('./scheduleData', 'w+')
 
@@ -23,11 +27,16 @@ class ScheduleSpider(scrapy.Spider):
         # Iterate over each subject listed in the combobox
         for i in range(num_options - 1):
             self.driver.get(response.url)
+
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, '//*[@id="selectedSubjects"]'))
+            )
+
             Select(self.driver.find_element_by_xpath('//*[@id="selectedSubjects"]')).select_by_index(i)
 
             subject_selection = Select(self.driver.find_element_by_xpath('//*[@id="selectedSubjects"]')).options[i].text
-            subject = subject_selection[(subject_selection.index('-') + 2):]
-            subject_short = subject_selection[:(subject_selection.index('-') - 1)]
+            course_subject_long = subject_selection[(subject_selection.index('-') + 2):]
+            course_subject = subject_selection[:(subject_selection.index('-') - 1)]
 
             self.driver.find_element_by_xpath('//*[@id="socFacSubmit"]').click()
 
@@ -54,6 +63,10 @@ class ScheduleSpider(scrapy.Spider):
                 # other way)
                 for selector in course_selectors:
                     course_title = unicode(selector.xpath('.//text()').extract_first(default=''))
+
+                    if '  ' in course_title:
+                        course_title = course_title[:course_title.index('  ')]
+
                     course_number = unicode(selector.xpath('.//ancestor::td[1]/preceding-sibling::td[1]/text()').extract_first(
                         ''))
                     professor_name = selector.xpath(
@@ -73,8 +86,8 @@ class ScheduleSpider(scrapy.Spider):
                     professor_name = (professor_name[:professor_name.index('  ')] if professor_name else '')
                     json_data.append(
                         {
-                            "courseSubject": subject_short,
-                            "courseSubject": subject,
+                            "courseSubject": course_subject,
+                            "courseSubjectLong": course_subject_long,
                             "courseName": course_title,
                             "courseNumber": course_number,
                             "professorName": professor_name
